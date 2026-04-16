@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+
+项目架构说明：
+
+nextjs + Tailwindcss4.x + shadcn/ui + pnpm

@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+Cursor Action Rules:
+
+Check Before Code Gen: 在生成代码前，预估文件是否会突破 350 行。
+
+Auto-Refactor:
+
+若后端 Service 过长，自动创建 xxx.helper.ts 或 xxx.logic.ts。
+
+若前端 TSX 过长，自动将 useState/useEffect 迁移至自定义 Hook。
+
+shadcn/ui Special: 即使使用了 shadcn，也不允许在主页面文件中堆砌大量 UI 标签，必须通过局部组件（Partial Components）进行语义化拆解。
+
+No "Comment-Padding": 禁止通过删减注释来规避 350 行约束。若无法拆分，必须在文件头部注释注明：// [ARCH_EXEMPTION]: Reason why this file exceeds 350 lines。

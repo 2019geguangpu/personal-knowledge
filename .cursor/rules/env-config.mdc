@@ -1,0 +1,5 @@
+---
+alwaysApply: false
+---
+
+.env 文件发生变化时，及时同步到 .env.example，并在 .env.example 文件中写上注释
