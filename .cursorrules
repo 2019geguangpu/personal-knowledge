@@ -1,0 +1,6 @@
+# Git Commit Rules
+When generating git commit messages, MUST write in Simplified Chinese.
+请务必使用简体中文生成 Git 提交信息，并遵循规范，例如：
+- feat: 新增了xxx功能
+- fix: 修复了xxx问题
+- docs: 更新了xxx文档

@@ -32,3 +32,9 @@ pnpm-debug.log*
 
 # eslint
 .eslintcache
+
+gitee*
+
+# Let's Encrypt HTTP-01（certbot --webroot -w public）；校验文件勿提交
+public/.well-known/acme-challenge/*
+!public/.well-known/acme-challenge/.gitkeep
