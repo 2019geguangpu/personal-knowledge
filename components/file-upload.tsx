@@ -2,7 +2,6 @@
 
 import { FileUp, Loader2 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,6 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+const FILE_UPLOAD_INPUT_ID = "pk-file-upload-input";
 
 export function FileUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,11 +73,15 @@ export function FileUpload() {
         <CardDescription>
           上传 .txt / .md 等纯文本文件；服务端分块、嵌入并写入本地 LanceDB（
           <code className="rounded bg-muted px-1 py-0.5 text-xs">data/</code>
-          ）。
+          ）。默认写入工作域（domain=work）；游戏数据请用 API 表单字段{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">domain=game</code>{" "}
+          与合法 slug 的{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">sub_domain</code>。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div
+        <label
+          htmlFor={FILE_UPLOAD_INPUT_ID}
           onDragEnter={(e) => {
             e.preventDefault();
             setDrag(true);
@@ -88,45 +93,39 @@ export function FileUpload() {
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
           className={cn(
-            "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-colors",
+            "flex min-h-44 cursor-pointer touch-manipulation flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-colors [-webkit-tap-highlight-color:transparent]",
             drag
               ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50 hover:bg-muted/40",
+              : "border-border active:border-primary/60 active:bg-muted/50 hover:border-primary/50 hover:bg-muted/40",
+            busy && "pointer-events-none opacity-60",
           )}
         >
+          <input
+            ref={inputRef}
+            id={FILE_UPLOAD_INPUT_ID}
+            type="file"
+            accept=".txt,.md,.markdown,text/plain,text/markdown"
+            className="sr-only"
+            onChange={onFile}
+            disabled={busy}
+          />
           <FileUp className="h-10 w-10 text-muted-foreground" />
           <div className="space-y-1">
-            <p className="text-sm font-medium">拖拽文件到此处</p>
+            <p className="text-sm font-medium">导入文本</p>
             <p className="text-xs text-muted-foreground">
-              或点击下方按钮选择文件
+              点击整片区域选择 .txt / .md；电脑可拖拽文件到此处。
             </p>
           </div>
-          <div>
-            <input
-              ref={inputRef}
-              id="file-upload"
-              type="file"
-              accept=".txt,.md,.markdown,text/plain,text/markdown"
-              className="hidden"
-              onChange={onFile}
-              disabled={busy}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => inputRef.current?.click()}
-            >
-              {busy ? "处理中…" : "选择文件"}
-            </Button>
-          </div>
+          <span className="rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            {busy ? "处理中…" : "选择文件"}
+          </span>
           {busy && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               正在分块与生成向量…
             </p>
           )}
-        </div>
+        </label>
 
         {message && (
           <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">

@@ -2,6 +2,53 @@
 
 基于 Next.js、LanceDB 与 SiliconFlow 的轻量本地知识库（RAG）Web 应用。
 
+## 这是什么
+
+- **目标**：把本地/导入的文本资料写入向量库，聊天时进行向量检索（RAG），把命中的片段作为上下文交给大模型生成回答。
+- **技术栈**：Next.js（App Router）+ TailwindCSS + shadcn/ui + LanceDB（本地向量库）+ SiliconFlow（OpenAI 兼容 API：embeddings / chat）。
+- **数据落地**：向量库落在 `VECTOR_DB_PATH`（默认 `./data/lancedb`）下，部署升级时要把它当作“数据目录”做持久化与备份。
+
+## RAG 的工作流（导入 → 检索 → 回答）
+
+1. **导入**（见 `/api/ingest`、`/api/feishu/import` 等）：读入原始文本。
+2. **切分**（`lib/chunk-text.ts`）：把长文本切成多个 chunk。
+3. **向量化**（`lib/siliconflow-embeddings.ts`）：对每个 chunk 调用 embeddings 得到向量。
+4. **入库**（`lib/lancedb.ts`）：写入 LanceDB 表（默认 `kb_chunks`）。
+5. **检索**（聊天时，`app/api/chat/route.ts`）：对用户 query 向量化 → 召回 top-k chunks → 拼成上下文块。
+6. **生成**（`lib/chat-system.ts`）：把“上下文块 + 约束提示词 + 用户消息”发给 chat 模型流式输出。
+
+## 切分策略（当前实现）
+
+当前切分是**按字符长度滑窗切分**（不做段落/句子/Markdown 结构识别），用于快速稳定地把任意长文本写入向量库。
+
+- **Chunk 大小**：`CHUNK_SIZE = 900`（字符）
+- **重叠**：`CHUNK_OVERLAP = 120`（字符）
+- **规范化**：把 `\r\n` 统一成 `\n`，并 `trim()`；空文本直接返回空数组
+- **实现位置**：`lib/chunk-text.ts`、参数在 `lib/constants.ts`
+
+## 检索参数（RAG）
+
+- **Top-K**：`RAG_TOP_K = 6`（见 `lib/constants.ts`）
+- **命中片段格式**：聊天接口会把每条命中拼成 `【片段 i · domain=... · sub=... · 来源 ... · #chunk_index】\n<chunk text>` 并用分隔线连接（见 `app/api/chat/route.ts`）
+- **Scope（分域检索）**：检索支持按 `domain / sub_domain / sub_domain_label` 做过滤（见 `lib/kb-scope.ts`，并在聊天与导入接口里解析）
+
+## 目录速览（从这里找代码）
+
+- **接口路由**：`app/api/**/route.ts`
+  - `app/api/chat/route.ts`：聊天 + RAG 检索 + 流式输出
+  - `app/api/ingest/route.ts`：上传文件导入纯文本到向量库（表单字段 `file`）
+  - `app/api/feishu/import/route.ts`：飞书导入（需要飞书应用凭证）
+  - `app/api/admin/backfill-kb-scope/route.ts`：管理/修复类接口（按需使用）
+  - `app/api/dev/*`：开发调试用接口（导入 JSON、视觉描述等）
+- **核心库**：`lib/**`
+  - `lib/chunk-text.ts`：切分
+  - `lib/ingest-kb.ts`：把文本切分→向量化→写入 LanceDB
+  - `lib/lancedb.ts`：LanceDB 表操作（插入/检索）
+  - `lib/siliconflow-embeddings.ts`：embeddings 调用封装
+  - `lib/chat-system.ts`：system prompt 组装
+  - `lib/env.ts`：环境变量读取与校验
+- **界面**：`app/page.tsx`、`components/**`（聊天面板、导入面板等）
+
 ## 本地开发
 
 1. 复制环境变量模板并填写：

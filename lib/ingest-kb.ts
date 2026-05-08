@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { chunkText } from "@/lib/chunk-text";
+import { DEFAULT_WORK_SCOPE, type KbScope } from "@/lib/kb-scope";
 import { addKbChunks, type KbChunkRow } from "@/lib/lancedb";
 import { embedTexts } from "@/lib/siliconflow-embeddings";
 
 export async function ingestPlainText(
   raw: string,
   source: string,
+  scope: KbScope = DEFAULT_WORK_SCOPE,
 ): Promise<{ chunkCount: number; source: string }> {
   const chunks = chunkText(raw);
   if (chunks.length === 0) {
@@ -22,6 +24,9 @@ export async function ingestPlainText(
     chunk_index: i,
     created_at: createdAt,
     vector: vectors[i]!,
+    domain: scope.domain,
+    sub_domain: scope.sub_domain,
+    sub_domain_label: scope.sub_domain_label,
   }));
 
   await addKbChunks(rows);

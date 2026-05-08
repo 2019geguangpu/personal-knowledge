@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { MermaidDiagram } from "@/components/mermaid-diagram";
 import { cn } from "@/lib/utils";
 
 type Variant = "user" | "assistant";
@@ -12,6 +13,29 @@ type Props = {
   content: string;
   variant: Variant;
 };
+
+function normalizeMermaid(content: string) {
+  const trimmed = content.trim();
+  if (trimmed.includes("```")) return content;
+
+  // 兼容用户直接粘贴 Mermaid（未包裹代码块）的常见形式：以 graph / flowchart / sequenceDiagram 开头。
+  const firstLine = trimmed.split("\n")[0]?.trim() ?? "";
+  const looksLikeMermaid =
+    firstLine.startsWith("graph ") ||
+    firstLine.startsWith("flowchart ") ||
+    firstLine.startsWith("sequenceDiagram") ||
+    firstLine.startsWith("stateDiagram") ||
+    firstLine.startsWith("classDiagram") ||
+    firstLine.startsWith("erDiagram") ||
+    firstLine.startsWith("journey") ||
+    firstLine.startsWith("gantt") ||
+    firstLine.startsWith("pie") ||
+    firstLine.startsWith("mindmap") ||
+    firstLine.startsWith("timeline");
+
+  if (!looksLikeMermaid) return content;
+  return `\`\`\`mermaid\n${trimmed}\n\`\`\``;
+}
 
 export function ChatMarkdown({ content, variant }: Props) {
   const components = useMemo<Components>(
@@ -127,7 +151,14 @@ export function ChatMarkdown({ content, variant }: Props) {
         </pre>
       ),
       code: ({ className, children, ...props }) => {
-        const isBlock = /language-[\w-]+/.test(className ?? "");
+        const language = (className ?? "").match(/language-([\w-]+)/)?.[1];
+        const isBlock = Boolean(language);
+        const raw = String(children ?? "").replace(/\n$/, "");
+
+        if (isBlock && language === "mermaid") {
+          return <MermaidDiagram code={raw} />;
+        }
+
         if (isBlock) {
           return (
             <code className={cn("block w-full", className)} {...props}>
@@ -161,7 +192,7 @@ export function ChatMarkdown({ content, variant }: Props) {
       )}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {content}
+        {normalizeMermaid(content)}
       </ReactMarkdown>
     </div>
   );

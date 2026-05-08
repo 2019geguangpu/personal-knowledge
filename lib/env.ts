@@ -13,6 +13,20 @@ export function getVectorDbPath(): string {
   return path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
 }
 
+/** 与请求头 x-kb-backfill-secret 比对；未配置则迁移接口不可用 */
+export function getKbBackfillSecret(): string | undefined {
+  const v = process.env.KB_BACKFILL_SECRET?.trim();
+  return v && v.length > 0 ? v : undefined;
+}
+
+/** SiliconFlow 视觉模型（OpenAI 兼容 /chat/completions） */
+export function getSiliconFlowVisionModel(): string {
+  return (
+    process.env.SILICONFLOW_VL_MODEL?.trim() ||
+    "Qwen/Qwen3-VL-32B-Instruct"
+  );
+}
+
 /** 与 SiliconFlow OpenAPI 枚举一致，见 https://docs.siliconflow.com/en/api-reference/embeddings/create-embeddings */
 export function getEmbeddingModel(): string {
   return process.env.SILICONFLOW_EMBEDDING_MODEL ?? "Qwen/Qwen3-Embedding-0.6B";
@@ -34,6 +48,17 @@ export function getEmbeddingDimensions(): number | undefined {
 
 export function getChatModel(): string {
   return process.env.SILICONFLOW_CHAT_MODEL ?? "deepseek-ai/DeepSeek-V3";
+}
+
+/**
+ * LanceDB 向量检索相似度阈值（仅用于日志观测与后续迭代；当前不改变检索行为）。
+ * 约定：阈值语义由上层决定（distance / score），先以配置值原样透传到日志。
+ */
+export function getRagSearchScoreThreshold(): number | undefined {
+  const raw = process.env.RAG_SEARCH_SCORE_THRESHOLD?.trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 /** 飞书自建应用 App ID（开放平台凭证与权限） */

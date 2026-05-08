@@ -12,6 +12,14 @@ Auto-Refactor:
 
 若前端 TSX 过长，自动将 useState/useEffect 迁移至自定义 Hook。
 
+lib 规划：
+
+若 `lib/` 文件开始“平铺增长”，必须补齐 `lib/README.md` 的模块地图；并优先新增/维护 `lib/index.ts` 作为分组统一出口，避免到处深层路径引用导致后续无法迁移目录结构。
+
+components 规划：
+
+若 `components/` 出现大量平铺组件，必须补齐 `components/README.md` 的组件地图；并按领域拆分子目录（如 `chat/`、`vision/`、`dev/`、`integrations/`、`renderers/`）。根目录只保留“领域入口组件”（例如 `ChatPanel`、`KnowledgeToolsSidebar`）与 `ui/`。
+
 shadcn/ui Special: 即使使用了 shadcn，也不允许在主页面文件中堆砌大量 UI 标签，必须通过局部组件（Partial Components）进行语义化拆解。
 
 No "Comment-Padding": 禁止通过删减注释来规避 350 行约束。若无法拆分，必须在文件头部注释注明：// [ARCH_EXEMPTION]: Reason why this file exceeds 350 lines。

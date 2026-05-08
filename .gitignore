@@ -26,9 +26,12 @@ pnpm-debug.log*
 .env
 .env*.local
 
-# vector db（保留 data/.gitkeep）
+# vector db（保留 data/.gitkeep）；LanceDB 默认在 data/lancedb，保持忽略
 /data/*
 !/data/.gitkeep
+# 可提交到 Git 的本地导入 JSON（铭文列表等）；仅本地维护，服务器不必跑导入
+!/data/imported/
+!/data/imported/**
 
 # eslint
 .eslintcache

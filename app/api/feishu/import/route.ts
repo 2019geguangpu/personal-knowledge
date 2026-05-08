@@ -8,6 +8,7 @@ import {
 } from "@/lib/feishu-client";
 import { getFeishuAppId, getFeishuAppSecret } from "@/lib/env";
 import { ingestPlainText } from "@/lib/ingest-kb";
+import { DEFAULT_WORK_SCOPE } from "@/lib/kb-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,7 +88,11 @@ export async function POST(req: Request) {
 
       const text = await fetchDocxRawContent(documentId, tenantToken);
       const source = `feishu:${documentId}`;
-      const { chunkCount } = await ingestPlainText(text, source);
+      const feishuScope = {
+        ...DEFAULT_WORK_SCOPE,
+        sub_domain_label: "飞书文档",
+      };
+      const { chunkCount } = await ingestPlainText(text, source, feishuScope);
 
       results.push({
         input: line,
