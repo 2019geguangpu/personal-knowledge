@@ -2,10 +2,18 @@ import pino, { type Logger as PinoLogger } from "pino";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-export const APP_LOG_PATH = "/data/logs/knowledge-base/app.log";
+const DEFAULT_PROD_LOG_PATH = "/data/logs/knowledge-base/app.log";
 
-function ensureLogDir() {
-  const dir = path.dirname(APP_LOG_PATH);
+export function getAppLogPath(): string | null {
+  // 开发环境默认不写文件，避免本地权限/目录问题；需要落盘可显式配置 APP_LOG_PATH
+  const envPath = process.env.APP_LOG_PATH?.trim();
+  if (envPath && envPath.length > 0) return envPath;
+  if (process.env.NODE_ENV === "development") return null;
+  return DEFAULT_PROD_LOG_PATH;
+}
+
+function ensureLogDir(filePath: string) {
+  const dir = path.dirname(filePath);
   mkdirSync(dir, { recursive: true });
 }
 
@@ -46,7 +54,20 @@ function baseOptions() {
 
 export function getLogger(): Logger {
   if (rootLogger) return rootLogger;
-  ensureLogDir();
+  const filePath = getAppLogPath();
+
+  // dev 默认走 stdout；避免本地创建 /data/... 失败
+  if (!filePath) {
+    rootLogger = pino(baseOptions());
+    return rootLogger;
+  }
+
+  // 相对路径落到项目工作目录，确保 mkdir 正常
+  const resolvedPath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(process.cwd(), filePath);
+
+  ensureLogDir(resolvedPath);
 
   // 可选：使用 pino-roll 作为 transport 做“每日轮转 + 保留 7 份”
   // 注意：pino-roll 的轮转文件名是 `app.2026-05-08.1.log` 这种点分格式（非 `app-2026-05-08.log`）
@@ -54,7 +75,7 @@ export function getLogger(): Logger {
     const transport = pino.transport({
       target: "pino-roll",
       options: {
-        file: APP_LOG_PATH,
+        file: resolvedPath,
         frequency: "daily",
         mkdir: true,
         dateFormat: "yyyy-MM-dd",
@@ -68,7 +89,7 @@ export function getLogger(): Logger {
   rootLogger = pino(
     baseOptions(),
     pino.destination({
-      dest: APP_LOG_PATH,
+      dest: resolvedPath,
       sync: false,
     }),
   );

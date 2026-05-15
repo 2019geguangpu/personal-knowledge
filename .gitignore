@@ -33,6 +33,9 @@ pnpm-debug.log*
 !/data/imported/
 !/data/imported/**
 
+# skills 插件的本地产物（报告/草稿/截图/临时文件）
+skills/**/_local/
+
 # eslint
 .eslintcache
 

@@ -1,0 +1,8 @@
+{
+  "id": "technical-seo-audit-skill",
+  "name": "Technical SEO Audit Skill",
+  "version": "0.1.0",
+  "entry": "skill.ts",
+  "description": "示例：基于抓取到的 HTML 生成基础技术 SEO 审计报告（title/description/robots/headings/links）。"
+}
+

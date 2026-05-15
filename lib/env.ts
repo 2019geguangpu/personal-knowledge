@@ -13,6 +13,38 @@ export function getVectorDbPath(): string {
   return path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
 }
 
+export function getLawSourceAllowlist(): string[] {
+  const raw = process.env.LAW_SOURCE_ALLOWLIST ?? "";
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0);
+}
+
+export function getLawSourceAllowlistOfficial(): string[] {
+  const raw = process.env.LAW_SOURCE_ALLOWLIST_OFFICIAL ?? "";
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0);
+}
+
+export function getLawSourceAllowlistTrusted(): string[] {
+  const raw = process.env.LAW_SOURCE_ALLOWLIST_TRUSTED ?? "";
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0);
+}
+
+export function getSerpApiKey(): string {
+  const key = process.env.SERPAPI_API_KEY?.trim();
+  if (!key) {
+    throw new Error("缺少环境变量 SERPAPI_API_KEY");
+  }
+  return key;
+}
+
 /** 与请求头 x-kb-backfill-secret 比对；未配置则迁移接口不可用 */
 export function getKbBackfillSecret(): string | undefined {
   const v = process.env.KB_BACKFILL_SECRET?.trim();
@@ -76,4 +108,10 @@ export function getFeishuAppSecret(): string {
     throw new Error("缺少环境变量 FEISHU_APP_SECRET");
   }
   return v;
+}
+
+/** NestJS skill-runner 根地址（Next 仅做转发），默认与本仓库 install-zip 示例一致 */
+export function getSkillRunnerBaseUrl(): string {
+  const raw = (process.env.SKILL_RUNNER_URL ?? "http://127.0.0.1:4317").trim();
+  return raw.replace(/\/$/, "");
 }

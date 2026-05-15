@@ -27,6 +27,13 @@ export * from "@/lib/feishu-client";
 export * from "@/lib/dev-imported-json-guard";
 export * from "@/lib/imported-json-filename";
 
+// law
+export * from "@/lib/law/source-verify";
+export * from "@/lib/law/serpapi-client";
+
+// seo-audit
+export * from "@/lib/seo-audit/types";
+
 // game
 export * from "@/lib/game-inscription-llm-prompt";
 export * from "@/lib/sort-list-by-stat-tool";

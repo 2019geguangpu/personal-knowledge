@@ -9,6 +9,7 @@ import {
 import { getFeishuAppId, getFeishuAppSecret } from "@/lib/env";
 import { ingestPlainText } from "@/lib/ingest-kb";
 import { DEFAULT_WORK_SCOPE } from "@/lib/kb-scope";
+import { getLogger, serializeError } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,9 +82,12 @@ export async function POST(req: Request) {
 
   const results: FeishuImportItemResult[] = [];
 
+  const log = getLogger().child({ module: "api/feishu/import" });
+
   for (const line of normalizedLines) {
+    let documentId: string | undefined;
     try {
-      const documentId = normalizeFeishuDocumentId(line);
+      documentId = normalizeFeishuDocumentId(line);
       assertValidDocxDocumentId(documentId);
 
       const text = await fetchDocxRawContent(documentId, tenantToken);
@@ -102,10 +106,20 @@ export async function POST(req: Request) {
         ok: true,
       });
     } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      const ref = documentId ?? line;
+      log.error({
+        action: "import_item",
+        msg: `✗ ${ref}: ${message}`,
+        document_id: documentId,
+        input: line,
+        ...serializeError(e),
+      });
       results.push({
         input: line,
+        documentId,
         ok: false,
-        error: e instanceof Error ? e.message : String(e),
+        error: message,
       });
     }
   }

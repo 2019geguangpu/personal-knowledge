@@ -27,6 +27,17 @@
 - `dev-json-import-panel.tsx`: 粘贴内容保存到 `data/imported`（dev only）
 - `dev-json-import-file-list.tsx`: 已有 imported json 文件列表（载入/刷新）
 
+## 领域：法律案例（law）
+
+- `law/law-search-panel.tsx`: 法律库搜索（`law_chunks`）+ 结果列表 + 来源白名单校验折叠面板
+
+## 领域：SEO 审计（seo）
+
+- `seo/seo-audit-panel.tsx`: SEO 审计主面板（左目录 + 右编排；转发 skill-runner）
+- `seo/seo-audit-skills-sidebar.tsx`: 左侧 Skill 目录（可收起、列表、ZIP 安装）
+- `seo/skill-zip-install-card.tsx`: ZIP 安装表单项（`POST /api/skills/install-zip`）
+- `seo/use-installed-skills.ts`: 已安装 skills 列表（`GET /api/skills`）
+
 ## 组件：渲染能力（renderers）
 
 - `mermaid-diagram.tsx`: Mermaid 渲染（动态 import + theme）

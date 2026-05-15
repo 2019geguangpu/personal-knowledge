@@ -1,4 +1,5 @@
 import * as lancedb from "@lancedb/lancedb";
+import type { AddColumnsSql } from "@lancedb/lancedb";
 import { mkdir } from "node:fs/promises";
 import { LANCE_TABLE_NAME, RAG_TOP_K } from "@/lib/constants";
 import {
@@ -20,6 +21,19 @@ export type KbChunkRow = {
   sub_domain_label: string;
 };
 
+export type GenericChunkRow = {
+  id: string;
+  text: string;
+  source: string;
+  chunk_index: number;
+  created_at: string;
+  vector: number[];
+  /** 允许不同业务自定义 domain，如 law */
+  domain?: string;
+  sub_domain?: string;
+  sub_domain_label?: string;
+};
+
 export type SearchHit = {
   text: string;
   source: string;
@@ -27,6 +41,16 @@ export type SearchHit = {
   domain: KbDomain;
   sub_domain: string;
   sub_domain_label: string;
+  distance?: number;
+};
+
+export type GenericSearchHit = {
+  text: string;
+  source: string;
+  chunk_index: number;
+  domain?: string;
+  sub_domain?: string;
+  sub_domain_label?: string;
   distance?: number;
 };
 
@@ -41,57 +65,70 @@ async function getDb(): Promise<lancedb.Connection> {
   return connectionPromise;
 }
 
-/** 打开 kb_chunks 表；不存在时返回 null（供迁移等使用） */
-export async function openKbChunksTable() {
+async function openTableIfExists(tableName: string) {
   const db = await getDb();
   const tables = await db.tableNames();
-  if (!tables.includes(LANCE_TABLE_NAME)) {
+  if (!tables.includes(tableName)) {
     return null;
   }
-  return db.openTable(LANCE_TABLE_NAME);
+  return db.openTable(tableName);
 }
 
-export async function addKbChunks(rows: KbChunkRow[]): Promise<void> {
+/** 旧版 kb_chunks 无 domain 等列时，在写入前补齐（与 backfill 默认值一致：工作域）。 */
+async function ensureKbChunksScopeColumns(table: lancedb.Table): Promise<void> {
+  const schema = await table.schema();
+  const names = new Set(schema.fields.map((f) => f.name));
+  const cols: AddColumnsSql[] = [];
+  if (!names.has("domain")) {
+    cols.push({ name: "domain", valueSql: "'work'" });
+  }
+  if (!names.has("sub_domain")) {
+    cols.push({ name: "sub_domain", valueSql: "'general'" });
+  }
+  if (!names.has("sub_domain_label")) {
+    cols.push({ name: "sub_domain_label", valueSql: "''" });
+  }
+  if (cols.length === 0) return;
+  await table.addColumns(cols);
+}
+
+async function addChunksToTable(
+  tableName: string,
+  rows: GenericChunkRow[],
+): Promise<void> {
   if (rows.length === 0) return;
   const db = await getDb();
   const tables = await db.tableNames();
-  if (!tables.includes(LANCE_TABLE_NAME)) {
-    await db.createTable(LANCE_TABLE_NAME, rows as Record<string, unknown>[], {
+  if (!tables.includes(tableName)) {
+    await db.createTable(tableName, rows as Record<string, unknown>[], {
       mode: "create",
       existOk: false,
     });
     return;
   }
-  const table = await db.openTable(LANCE_TABLE_NAME);
+  const table = await db.openTable(tableName);
+  if (tableName === LANCE_TABLE_NAME) {
+    await ensureKbChunksScopeColumns(table);
+  }
   await table.add(rows as Record<string, unknown>[]);
 }
 
-export async function searchSimilarChunks(
+async function searchSimilarChunksInTable(
+  tableName: string,
   queryVector: number[],
   limit = RAG_TOP_K,
-  scope?: KbScope,
-): Promise<SearchHit[]> {
+  whereClause?: string,
+): Promise<GenericSearchHit[]> {
   const db = await getDb();
   const tables = await db.tableNames();
-  if (!tables.includes(LANCE_TABLE_NAME)) {
+  if (!tables.includes(tableName)) {
     return [];
   }
-  const table = await db.openTable(LANCE_TABLE_NAME);
+  const table = await db.openTable(tableName);
+
   let raw: Record<string, unknown>[];
-  if (scope != null) {
-    try {
-      raw = await table
-        .vectorSearch(queryVector)
-        .where(buildVectorWhereClause(scope))
-        .limit(limit)
-        .toArray();
-    } catch (err) {
-      console.warn(
-        "[lancedb] 带 domain 过滤的向量检索失败，回退为全表检索（可能为旧表结构）：",
-        err instanceof Error ? err.message : err,
-      );
-      raw = await table.vectorSearch(queryVector).limit(limit).toArray();
-    }
+  if (whereClause != null && whereClause.trim().length > 0) {
+    raw = await table.vectorSearch(queryVector).where(whereClause).limit(limit).toArray();
   } else {
     raw = await table.vectorSearch(queryVector).limit(limit).toArray();
   }
@@ -103,17 +140,90 @@ export async function searchSimilarChunks(
         : typeof row.distance === "number"
           ? row.distance
           : undefined;
-    const domainRaw = row.domain;
-    const domain: KbDomain =
-      domainRaw === "game" ? "game" : "work";
     return {
       text: String(row.text ?? ""),
       source: String(row.source ?? ""),
       chunk_index: Number(row.chunk_index ?? 0),
-      domain,
-      sub_domain: String(row.sub_domain ?? ""),
-      sub_domain_label: String(row.sub_domain_label ?? ""),
+      domain: row.domain != null ? String(row.domain) : undefined,
+      sub_domain: row.sub_domain != null ? String(row.sub_domain) : undefined,
+      sub_domain_label:
+        row.sub_domain_label != null ? String(row.sub_domain_label) : undefined,
       distance,
     };
   });
+}
+
+/** 打开 kb_chunks 表；不存在时返回 null（供迁移等使用） */
+export async function openKbChunksTable() {
+  return openTableIfExists(LANCE_TABLE_NAME);
+}
+
+export async function addKbChunks(rows: KbChunkRow[]): Promise<void> {
+  return addChunksToTable(LANCE_TABLE_NAME, rows);
+}
+
+export async function searchSimilarChunks(
+  queryVector: number[],
+  limit = RAG_TOP_K,
+  scope?: KbScope,
+): Promise<SearchHit[]> {
+  if (scope != null) {
+    try {
+      const hits = await searchSimilarChunksInTable(
+        LANCE_TABLE_NAME,
+        queryVector,
+        limit,
+        buildVectorWhereClause(scope),
+      );
+      return hits.map((h) => ({
+        text: h.text,
+        source: h.source,
+        chunk_index: h.chunk_index,
+        domain: h.domain === "game" ? "game" : "work",
+        sub_domain: h.sub_domain ?? "",
+        sub_domain_label: h.sub_domain_label ?? "",
+        distance: h.distance,
+      }));
+    } catch (err) {
+      console.warn(
+        "[lancedb] 带 domain 过滤的向量检索失败，回退为全表检索（可能为旧表结构）：",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  const hits = await searchSimilarChunksInTable(
+    LANCE_TABLE_NAME,
+    queryVector,
+    limit,
+  );
+  return hits.map((h) => ({
+    text: h.text,
+    source: h.source,
+    chunk_index: h.chunk_index,
+    domain: h.domain === "game" ? "game" : "work",
+    sub_domain: h.sub_domain ?? "",
+    sub_domain_label: h.sub_domain_label ?? "",
+    distance: h.distance,
+  }));
+}
+
+/** 法律模块独立表：仅提供通用检索与入库，不引入 kb-scope/domain 逻辑 */
+export const LAW_TABLE_NAME = "law_chunks";
+
+export type LawChunkRow = GenericChunkRow & {
+  domain: "law";
+  sub_domain: "doc" | "analysis";
+  sub_domain_label: string;
+};
+
+export async function addLawChunks(rows: LawChunkRow[]): Promise<void> {
+  return addChunksToTable(LAW_TABLE_NAME, rows);
+}
+
+export async function searchLawChunks(
+  queryVector: number[],
+  limit = RAG_TOP_K,
+): Promise<GenericSearchHit[]> {
+  return searchSimilarChunksInTable(LAW_TABLE_NAME, queryVector, limit);
 }
